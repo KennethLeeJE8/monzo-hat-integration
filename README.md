@@ -4,6 +4,7 @@ Connecting information from Monzo to HAT PDAs
 # Setup
 
 Use npm install to install the neccessary packages
+
 Use npm start to start the React Application
 
 ## .env file
@@ -27,9 +28,11 @@ Login -> MonzoAuthToken -> Monzo Account Balance
 # Dual Authentication
 There are 2 authentication steps in the process of grabbing yor account details:
 - Email Verification
+
 During the authentication process, it will ask for your email and send you an email with a link. Ensure that the email you use is registered with Monzo and that you access the link on the SAME DEVICE, as it uses cookies to ensure that the request and authentication is done on the same device. 
 
 - Allow Data Access on Monzo Mobile Application
+
 After getting your Auth Token, navigate to your Monzo mobile application. 
 
 Ensure that you are logged in with the email that you gave in the previous authentication. 
