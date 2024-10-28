@@ -1,15 +1,25 @@
 # monzo-hat-integration
 Connecting information from Monzo to HAT PDAs
 
-# .env file
+# Setup
+
+Use npm install to install the neccessary packages
+Use npm start to start the React Application
+
+## .env file
+Duplicate the .env.example file and name the duplicate .env, changing the variables accordingly
+
 grant_type: Keep as authorization_code
 client_id: Get from Monzo application on https://developers.monzo.com/api
 client_secret: Get from Monzo application on https://developers.monzo.com/api
 redirect_url: Application URL, make sure that it is a valid URL
 
-Since I am testing it in a dev environment, I used gotolocalhost as a valid URL as localhost does not work with OAuth. 
+Since I am testing it in a dev environment, I used [tolocalhost](https://tolocalhost.com/) as a valid URL as localhost does not work with OAuth. 
 
-If you will be using localhost as well, then have your application running and fill out the corresponding port number at https://tolocalhost.com/
+If you will be using localhost as well, then have your localhost running and fill out the corresponding port number at [tolocalhost]https://tolocalhost.com/. 
+
+# Progression
+Login -> MonzoAuthToken -> Monzo Account Balance
 
 # Dual Authentication
 There are 2 authentication steps in the process of grabbing yor account details:
@@ -21,5 +31,5 @@ After getting your Auth Token, navigate to your Monzo mobile application.
 
 Ensure that you are logged in with the email that you gave in the previous authentication. 
 
-There will be a pop-up on your screen, asking for permission to access your Monzo data, you just need to allow data access in order to grab account detais
+There will be a pop-up on your screen, asking for permission to access your Monzo data, you just need to allow data access in order to grab account details
 
