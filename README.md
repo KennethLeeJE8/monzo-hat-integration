@@ -8,7 +8,7 @@ Use npm install to install the neccessary packages
 Use npm start to start the React Application
 
 ## .env file
-Duplicate the .env.example file and name the duplicate .env, changing the variables accordingly
+Duplicate the .env.example file and name the duplicate .env, changing the following variables accordingly:
 
 grant_type: Keep as authorization_code
 
@@ -20,9 +20,9 @@ redirect_url: Application URL, make sure that it is a valid URL
 
 Since I am testing it in a dev environment, I used [tolocalhost](https://tolocalhost.com/) as a valid URL as localhost does not work with OAuth. 
 
-If you will be using localhost as well, then have your localhost running and fill out the corresponding port number at [tolocalhost]https://tolocalhost.com/. 
+If you will be using localhost as well, then have your localhost running and fill out the corresponding port number at [tolocalhost](https://tolocalhost.com/). 
 
-# Progression
+# Button Progression
 Login -> MonzoAuthToken -> Monzo Account Balance
 
 # Dual Authentication
