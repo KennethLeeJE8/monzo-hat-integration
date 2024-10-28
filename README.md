@@ -10,8 +10,11 @@ Use npm start to start the React Application
 Duplicate the .env.example file and name the duplicate .env, changing the variables accordingly
 
 grant_type: Keep as authorization_code
+
 client_id: Get from Monzo application on https://developers.monzo.com/api
+
 client_secret: Get from Monzo application on https://developers.monzo.com/api
+
 redirect_url: Application URL, make sure that it is a valid URL
 
 Since I am testing it in a dev environment, I used [tolocalhost](https://tolocalhost.com/) as a valid URL as localhost does not work with OAuth. 
