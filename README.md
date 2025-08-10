@@ -1,41 +1,325 @@
-# monzo-hat-integration
-Connecting information from Monzo to HAT PDAs
+# Monzo Data Connector
 
-# Setup
+A production-ready data connector that integrates Monzo banking data with Dataswyft wallets via the CheckD platform. This connector implements secure OAuth 2.0 authentication, comprehensive data extraction, and wallet storage following data connector best practices.
 
-Use npm install to install the neccessary packages
+## 🏗️ Architecture
 
-Use npm start to start the React Application
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│  CheckD Gateway │────│ Monzo Connector  │────│ Monzo API       │
+│                 │    │ Service          │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                              │
+                              ▼
+                       ┌──────────────────┐
+                       │ Dataswyft Wallet │
+                       │ Storage          │
+                       └──────────────────┘
+```
 
-## .env file
-Duplicate the .env.example file and name the duplicate .env, changing the following variables accordingly:
+## 📋 Features
 
-grant_type: Keep as authorization_code
+- **🔐 Secure Authentication**: OAuth 2.0 flow with mobile app approval
+- **📊 Complete Data Extraction**: Accounts, balances, transactions
+- **🌐 Webhook Integration**: CheckD platform webhook handling with JWT validation
+- **💾 Wallet Storage**: Proper application token authentication for Dataswyft wallets
+- **🔄 Async Processing**: Background processing with callback support
+- **🛡️ Error Handling**: Comprehensive error handling and retry logic
+- **📈 Monitoring**: Health checks and structured logging
+- **🧪 Testing**: Unit tests and integration tests
 
-client_id: Get from Monzo application on https://developers.monzo.com/api
+## 🚀 Quick Start
 
-client_secret: Get from Monzo application on https://developers.monzo.com/api
+### Prerequisites
+- Node.js 18+
+- Monzo Developer Account
+- Dataswyft Wallet Credentials
 
-redirect_url: Application URL, make sure that it is a valid URL
+### Installation
 
-Since I am testing it in a dev environment, I used [tolocalhost](https://tolocalhost.com/) as a valid URL as localhost does not work with OAuth. 
+```bash
+git clone <repository>
+cd monzo-data-connector
+npm install
+```
 
-If you will be using localhost as well, then have your localhost running and fill out the corresponding port number at [tolocalhost](https://tolocalhost.com/). 
+### Environment Setup
 
-# Button Progression
-Login -> MonzoAuthToken -> Monzo Account Balance
+Create `.env` file:
 
-# Dual Authentication
-There are 2 authentication steps in the process of grabbing yor account details:
-- Email Verification
+```bash
+# Monzo Configuration
+MONZO_CLIENT_ID=your_monzo_client_id
+MONZO_CLIENT_SECRET=your_monzo_client_secret
+MONZO_ACCOUNTS_URL=https://auth.monzo.com
+MONZO_API_DOMAIN=https://api.monzo.com
+MONZO_SCOPE=read
+MONZO_REDIRECT_URI=https://tolocalhost.com/
 
-During the authentication process, it will ask for your email and send you an email with a link. Ensure that the email you use is registered with Monzo and that you access the link on the SAME DEVICE, as it uses cookies to ensure that the request and authentication is done on the same device. 
+# Data Connector Configuration
+DS_APPLICATION_ID=oi-s-monzodataconnector
+DS_NAMESPACE=monzo
+DS_DATA_PATH=accounts
 
-- Allow Data Access on Monzo Mobile Application
+# Server Configuration
+CONNECTOR_PORT=8080
+NODE_ENV=development
+LOG_LEVEL=info
 
-After getting your Auth Token, navigate to your Monzo mobile application. 
+# Dataswyft Wallet Configuration
+DATASWIFT_API_URL=https://your-instance.hubat.net
+DATASWIFT_USERNAME=your_username
+DATASWIFT_PASSWORD=your_password
+```
 
-Ensure that you are logged in with the email that you gave in the previous authentication. 
+### Start the Connector
 
-There will be a pop-up on your screen, asking for permission to access your Monzo data, you just need to allow data access in order to grab account details
+```bash
+npm start
+# Server runs on http://localhost:8080
+```
 
+## 🔧 API Endpoints
+
+### Health & Status
+- `GET /health` - Service health check
+- `GET /test/wallet-health` - Wallet connectivity test
+
+### Webhook Endpoints (Production)
+- `POST /webhook/connect` - Main CheckD webhook endpoint
+- `GET /webhook/status/:requestId` - Request status tracking
+- `POST /webhook/test-callback` - Callback connectivity test
+
+### Development & Testing
+- `GET /test/monzo-auth` - OAuth authentication flow
+- `GET /test/monzo-data` - Data extraction test
+- `GET /test/wallet-connection` - Wallet connection test
+- `GET /test/complete-flow` - End-to-end flow test
+
+## 🧪 Testing
+
+### Unit Tests
+```bash
+npm run test:unit        # Gateway and wallet unit tests
+npm run test:webhook     # Webhook handler tests only  
+npm run test:wallet-unit # Wallet client tests only
+```
+
+### Integration Tests
+```bash
+npm run test:integration # Full integration tests
+npm run test:all        # All tests (unit + integration)
+```
+
+### OAuth Flow Testing (2-Part Process)
+```bash
+# Part 1: Trigger OAuth (approve in mobile app)
+npm run test:oauth-part1
+
+# Part 2: Complete flow with approved token  
+npm run test:oauth-part2
+
+# Or run both with manual approval step
+npm run test:oauth-both
+```
+
+### Manual Testing Scripts
+```bash
+npm run test:wallet      # Direct wallet API test
+npm run test:wallet-monzo # Monzo + wallet integration
+```
+
+## 📁 Project Structure
+
+```
+src/
+├── auth/                    # Authentication layer
+│   └── monzo-oauth-handler.js
+├── connectors/              # API integration layer  
+│   └── monzo-connector.js
+├── gateway/                 # CheckD platform integration
+│   ├── callback-client.js
+│   └── monzo-webhook.js
+├── storage/                 # Dataswyft wallet integration
+│   └── wallet-client.js
+├── utils/                   # Common utilities
+│   ├── error-handler.js
+│   ├── logger.js
+│   └── retry-handler.js
+├── config/                  # Configuration
+│   ├── environment.js
+│   └── monzo-config.js
+└── __tests__/               # Integration tests
+    └── integration/
+```
+
+## 🔐 Authentication Flow
+
+The connector implements a secure 2-token authentication pattern:
+
+1. **Access Token**: Authenticate with Dataswyft wallet API
+   ```bash
+   POST /users/access_token
+   Headers: username, password
+   ```
+
+2. **Application Token**: Obtained using access token for data operations
+   ```bash  
+   GET /api/v2.6/applications/{applicationId}/access-token
+   Headers: x-auth-token: {accessToken}
+   ```
+
+3. **Data Operations**: Use application token for all wallet storage/retrieval
+   ```bash
+   POST /api/v2.6/data/{namespace}/{path}
+   Headers: x-auth-token: {applicationToken}
+   ```
+
+## 🌐 Webhook Integration
+
+### CheckD Gateway Webhook
+```bash
+POST /webhook/connect
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+
+{
+  "data": "user@example.com",
+  "async": true,
+  "callback_url": "https://your-callback-url.com/callback"
+}
+```
+
+### Response Formats
+```json
+// Synchronous (immediate processing)
+{
+  "status": "success",
+  "requestId": "monzo_1234567890_abc123",
+  "data": { "accounts": [...], "balances": [...] },
+  "wallet": { "stored": true, "namespace": "monzo", "recordId": "..." }
+}
+
+// Asynchronous (background processing)
+{
+  "status": "accepted", 
+  "requestId": "monzo_1234567890_abc123",
+  "message": "Request accepted for asynchronous processing"
+}
+```
+
+## 📊 Data Structure
+
+### Monzo Account Data
+```json
+{
+  "accounts": [
+    {
+      "id": "acc_123",
+      "description": "Current Account",
+      "currency": "GBP",
+      "owner_type": "individual",
+      "owners": [{"preferred_name": "John Doe"}]
+    }
+  ],
+  "balances": [
+    {
+      "accountId": "acc_123", 
+      "balance": 12345,
+      "currency": "GBP",
+      "spend_today": 0
+    }
+  ]
+}
+```
+
+### Wallet Storage Format
+```json
+{
+  "source": {
+    "name": "monzo-data-connector",
+    "version": "1.0.0", 
+    "provider": "monzo"
+  },
+  "metadata": {
+    "namespace": "monzo",
+    "contentType": "application/json",
+    "dataType": "banking-data"
+  },
+  "data": { /* Raw Monzo API response */ }
+}
+```
+
+## 🔍 Monitoring & Logging
+
+### Health Check Response
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-01-01T12:00:00.000Z", 
+  "service": "monzo-data-connector",
+  "version": "1.0.0"
+}
+```
+
+### Structured Logging
+- **Service**: `monzo-data-connector`
+- **Levels**: ERROR, WARN, INFO, DEBUG
+- **Format**: JSON with timestamps and request context
+
+## 🛡️ Security Features
+
+- **JWT Validation**: Multi-source token extraction and validation
+- **CSRF Protection**: State parameter validation in OAuth flow
+- **Input Validation**: Request data and callback URL validation  
+- **Error Sanitization**: Sensitive data excluded from logs
+- **Rate Limiting**: Built-in API request throttling
+- **Token Security**: Automatic token refresh and expiration handling
+
+## 🚀 Deployment
+
+### Environment Variables Required
+```bash
+# Production essentials
+MONZO_CLIENT_ID, MONZO_CLIENT_SECRET
+DATASWIFT_API_URL, DATASWIFT_USERNAME, DATASWIFT_PASSWORD
+DS_APPLICATION_ID
+CONNECTOR_PORT
+```
+
+### Docker Support
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+EXPOSE 8080
+CMD ["npm", "start"]
+```
+
+## 📝 Development
+
+### Adding New Data Sources
+1. Create connector in `src/connectors/`
+2. Implement authentication in `src/auth/`  
+3. Add webhook handler in `src/gateway/`
+4. Configure field mappings
+5. Add comprehensive tests
+
+### Testing Strategy
+- **Unit Tests**: Each module (52 webhook tests, 18 wallet tests)
+- **Integration Tests**: API connectivity and wallet storage
+- **End-to-End Tests**: Complete webhook → data → wallet flow
+- **Manual Scripts**: Direct API testing and validation
+
+## 📋 License
+
+Private - Internal use only
+
+## 🤝 Contributing
+
+1. Follow existing code patterns and conventions
+2. Add comprehensive tests for new features
+3. Update documentation for API changes
+4. Ensure security best practices are followed
