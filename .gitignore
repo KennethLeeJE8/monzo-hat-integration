@@ -112,11 +112,6 @@ Thumbs.db
 # Documentation files (exclude from version control)
 *.md
 !README.md
-CLAUDE.md
-data_connector_template.md
-monzo_auth.md
-phase4-wallet-integration-guide.md
-test-webhook-endpoints.md
 
 # Test files and scripts
 test-*.js

@@ -23,10 +23,11 @@ A data connector that integrates Monzo banking data with Dataswyft wallets via t
 - **📊 Complete Data Extraction**: Accounts, balances, transactions
 - **🌐 Webhook Integration**: CheckD platform webhook handling with JWT validation
 - **💾 Wallet Storage**: Proper application token authentication for Dataswyft wallets
+- **🔒 Data Integrity**: SHA-256 checksum validation with metadata structure
 - **🔄 Async Processing**: Background processing with callback support
 - **🛡️ Error Handling**: Comprehensive error handling and retry logic
 - **📈 Monitoring**: Health checks and structured logging
-- **🧪 Testing**: Unit tests and integration tests
+- **🧪 Testing**: Unit tests and end-to-end integration tests
 
 ## 🚀 Quick Start
 
@@ -79,12 +80,45 @@ npm start
 # Server runs on http://localhost:8080
 ```
 
+## 📊 Data Structure
+
+### Wallet Payload Format
+Data is stored in the Dataswyft wallet with the following structure:
+
+```json
+{
+  "metadata": {
+    "inbox_message_id": "unique_message_id_or_null",
+    "create_at": "2025-08-18T20:09:25.490Z",
+    "checksum": "1468bddc2e73d22bf3f4e3b6520c1a7f004a90030af6102cd97cef59ef4cab7a"
+  },
+  "data": {
+    "accounts": [/* Your Monzo account data */],
+    "balances": [/* Your current balance data */],
+    "transactions": [/* Your transaction history */],
+    "connectionTest": { "success": true },
+    "extractionMeta": {
+      "accountCount": 2,
+      "balanceCount": 1, 
+      "transactionCount": 0,
+      "extractedAt": "2025-08-18T20:09:25.490Z",
+      "connector": "monzo-data-connector"
+    }
+  }
+}
+```
+
+- **Checksum**: SHA-256 hash computed on the `data` portion for integrity validation
+- **Namespace**: Stored in `monzo/accounts` path in your Dataswyft wallet
+- **Security**: All data encrypted and stored securely in your personal data wallet
+
 ## 🔧 Available Endpoints
 
 - `GET /health` - Service health check
 - `POST /webhook/connect` - Main CheckD webhook endpoint  
 - `GET /test/monzo-auth` - OAuth authentication flow
 - `GET /test/monzo-data` - Data extraction test
+- `POST /test/store-monzo-with-checksum` - Store Monzo data with checksum validation
 - `GET /test/wallet-connection` - Wallet connection test
 
 ## 🧪 Testing
@@ -109,9 +143,11 @@ npm run test:oauth-part2
 ```
 Run this **AFTER** approving in mobile app. This will:
 1. Use the approved token
-2. Extract banking data (accounts, balances)
-3. Store data in Dataswyft wallet
-4. Complete end-to-end flow testing
+2. Extract real banking data from your Monzo account (accounts, balances)
+3. Apply checksum validation with SHA-256 hash
+4. Store data in `monzo` namespace with integrity metadata
+5. Test callback webhook functionality
+6. Complete end-to-end flow testing
 
 #### **Combined Flow** (with manual approval step)
 ```bash

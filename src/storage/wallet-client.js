@@ -1,5 +1,6 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
+const Integrity = require('../utils/integrity');
 
 /**
  * Dataswyft Wallet Client for storing banking data
@@ -160,10 +161,10 @@ class WalletClient {
    * Store Monzo data in Dataswyft wallet with proper metadata
    */
   async storeData(namespace, dataPath, data, options = {}) {
-    const { isTest = false, recordName = 'monzo-banking-data' } = options;
+    const { isTest = false, recordName = 'monzo-banking-data', inbox_message_id = null } = options;
     
-    // Determine namespace: test/monzo/accounts for tests, monzo/accounts for production
-    const finalNamespace = isTest ? `test/${namespace}` : namespace;
+    // Determine namespace: monzo/test for tests, monzo for production
+    const finalNamespace = isTest ? `${namespace}/test` : namespace;
     const finalPath = dataPath;
 
     try {
@@ -181,7 +182,7 @@ class WalletClient {
       });
 
       // Prepare data with metadata (or use raw data for testing)
-      const walletData = isTest ? data : this.prepareWalletData(data, finalNamespace, recordName);
+      const walletData = isTest ? data : this.prepareWalletData(data, finalNamespace, recordName, inbox_message_id);
       
       // Store data using application token (correct data connector pattern)
       const response = await this.httpClient.post(`/api/v2.6/data/${finalNamespace}/${finalPath}`, walletData, {
@@ -231,45 +232,36 @@ class WalletClient {
   }
 
   /**
-   * Prepare data for wallet storage with proper metadata
+   * Prepare data for wallet storage with new payload structure
+   * Format: { metadata: { inbox_message_id, create_at, checksum }, data: transformedData }
    */
-  prepareWalletData(rawData, namespace, recordName) {
-    const timestamp = new Date().toISOString();
-    
-    return {
-      // Data source metadata
-      source: {
-        name: 'monzo-data-connector',
-        version: '1.0.0',
-        provider: 'monzo',
-        extractionTime: timestamp
-      },
-      
-      // Record metadata
-      metadata: {
-        recordName,
-        namespace,
-        contentType: 'application/json',
-        dataType: 'banking-data',
-        schema: 'raw-monzo-api-response',
-        created: timestamp,
-        updated: timestamp
-      },
-
-      // Raw Monzo data
-      data: {
-        accounts: rawData.accounts || [],
-        balances: rawData.balances || [],
-        transactions: rawData.transactions || [],
-        connectionTest: rawData.connectionTest || null,
-        extractionMeta: {
-          accountCount: rawData.accounts?.length || 0,
-          balanceCount: rawData.balances?.length || 0,
-          transactionCount: rawData.transactions?.length || 0,
-          extractedAt: timestamp,
-          connector: 'monzo-data-connector'
-        }
+  prepareWalletData(rawData, namespace, recordName, inbox_message_id = null) {
+    // Transform the raw data (this is the data from external API)
+    const transformedData = {
+      accounts: rawData.accounts || [],
+      balances: rawData.balances || [],
+      transactions: rawData.transactions || [],
+      connectionTest: rawData.connectionTest || null,
+      extractionMeta: {
+        accountCount: rawData.accounts?.length || 0,
+        balanceCount: rawData.balances?.length || 0,
+        transactionCount: rawData.transactions?.length || 0,
+        extractedAt: new Date().toISOString(),
+        connector: 'monzo-data-connector'
       }
+    };
+
+    // Compute checksum of the transformed data
+    const checksum = Integrity.compute_checksum(transformedData);
+
+    // Return the new payload structure
+    return {
+      metadata: {
+        inbox_message_id: inbox_message_id,
+        create_at: new Date().toISOString(),
+        checksum: checksum
+      },
+      data: transformedData
     };
   }
 
@@ -365,7 +357,7 @@ class WalletClient {
       }
 
       const { isTest = false } = options;
-      const finalNamespace = isTest ? `test/${namespace}` : namespace;
+      const finalNamespace = isTest ? `${namespace}/test` : namespace;
 
       logger.info('Retrieving data from wallet', { namespace: finalNamespace });
 

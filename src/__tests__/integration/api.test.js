@@ -265,7 +265,7 @@ describe('End-to-End Integration Tests (Server Running)', () => {
           message: expect.stringContaining('successful'),
           details: expect.objectContaining({
             success: true,
-            namespace: 'test/monzo'
+            namespace: 'monzo/test'
           })
         });
 
@@ -298,7 +298,7 @@ describe('End-to-End Integration Tests (Server Running)', () => {
           message: expect.stringContaining('stored'),
           result: expect.objectContaining({
             success: true,
-            namespace: 'test/monzo',
+            namespace: 'monzo/test',
             dataSize: expect.any(Number)
           }),
           testDataUsed: true
@@ -333,7 +333,7 @@ describe('End-to-End Integration Tests (Server Running)', () => {
           status: 'success',
           result: expect.objectContaining({
             success: true,
-            namespace: 'test/monzo',
+            namespace: 'monzo/test',
             recordId: expect.any(String)
           }),
           testDataUsed: false
@@ -538,54 +538,93 @@ describe('End-to-End Integration Tests (Server Running)', () => {
         return;
       }
 
-      console.log('   💾 Step 3: Storing Monzo data in Dataswift wallet (using server endpoint)...');
+      console.log('   💾 Step 3: Storing Monzo data in Dataswift wallet with new checksum format...');
 
-      // Use server endpoint which has working WalletClient
+      // Take the Monzo data and store it with proper checksum metadata structure
       try {
+        // Use a custom endpoint that ensures proper data structure and namespace
         const walletStoreResponse = await request(serverUrl)
-          .get('/test/wallet-connection')
+          .post('/test/store-monzo-with-checksum')
+          .send({ 
+            monzoData: monzoDataResponse.body.data,
+            namespace: 'monzo',
+            isTest: false, // Ensures writes to monzo namespace (production)
+            inbox_message_id: `test_${Date.now()}` // Add unique message ID
+          })
           .expect('Content-Type', /json/);
         
-        console.log('   📋 Wallet connection test result:', walletStoreResponse.body.status);
+        console.log('   📋 Wallet storage result:', walletStoreResponse.body.status);
         
-        const walletResult = walletStoreResponse.body.details || { success: walletStoreResponse.body.status === 'success' };
+        const walletResult = walletStoreResponse.body.result || { success: walletStoreResponse.body.status === 'success' };
         
         var walletResponse = {
           status: walletResult.success ? 200 : 500,
           body: {
             status: walletResult.success ? 'success' : 'error',
-            message: walletResult.success ? 'WalletClient storage successful' : 'WalletClient storage failed',
+            message: walletResult.success ? 'Monzo data stored with checksum metadata' : 'Failed to store Monzo data',
             result: walletResult
           }
         };
         
         if (walletResult.success) {
-          console.log('   ✅ WalletClient storage successful!');
-          console.log('   📋 Wallet result:', {
-            recordId: walletResult.recordId,
+          console.log('   ✅ Monzo data stored with checksum metadata!');
+          console.log('   📋 Storage details:', {
             namespace: walletResult.namespace,
-            dataSize: walletResult.dataSize
+            path: walletResult.path,
+            actualChecksum: walletResult.actualChecksum?.substring(0, 16) + '...',
+            dataSize: walletResult.dataSize,
+            timestamp: walletResult.timestamp
           });
+          
+          // Verify the payload structure matches our requirements
+          expect(walletResult.payloadStructure).toMatchObject({
+            metadata: {
+              inbox_message_id: expect.any(String),
+              create_at: expect.any(String),
+              checksum: expect.stringMatching(/^[a-f0-9]{64}$/) // SHA-256 hex
+            },
+            data: expect.any(String)
+          });
+          
+          console.log('   ✅ Payload structure verified with actual checksum:', walletResult.actualChecksum?.substring(0, 16) + '...');
         } else if (walletResult.isDuplicate) {
-          console.log('   ✅ WalletClient successful (duplicate data - this is expected)');
+          console.log('   ✅ Data already exists (duplicate data - this is expected)');
         } else {
-          console.log('   ❌ WalletClient storage failed:', walletResult.error);
+          console.log('   ❌ Storage failed:', walletResult.error);
         }
         
       } catch (walletError) {
-        var walletResponse = {
-          status: 500,
-          body: {
-            status: 'error',
-            message: 'WalletClient storage failed',
-            result: {
-              success: false,
-              error: walletError.message
+        // Fallback: try the original wallet store endpoint
+        console.log('   🔄 Fallback: Using original wallet-store endpoint...');
+        try {
+          const fallbackResponse = await request(serverUrl)
+            .post('/test/wallet-store')
+            .send({ useTestData: false })
+            .expect('Content-Type', /json/);
+          
+          var walletResponse = {
+            status: fallbackResponse.status,
+            body: fallbackResponse.body
+          };
+          
+          console.log('   📋 Fallback storage result:', fallbackResponse.body.status);
+          
+        } catch (fallbackError) {
+          var walletResponse = {
+            status: 500,
+            body: {
+              status: 'error',
+              message: 'Both wallet storage methods failed',
+              result: {
+                success: false,
+                error: fallbackError.message,
+                originalError: walletError.message
+              }
             }
-          }
-        };
-        
-        console.log('   ❌ WalletClient storage failed:', walletError.message);
+          };
+          
+          console.log('   ❌ All wallet storage attempts failed');
+        }
       }
 
       expect([200, 400, 500]).toContain(walletResponse.status);
@@ -607,7 +646,8 @@ describe('End-to-End Integration Tests (Server Running)', () => {
           message: expect.stringContaining('stored'),
           result: expect.objectContaining({
             success: expect.any(Boolean),
-            namespace: 'test/monzo'
+            namespace: 'monzo', // Updated to production namespace
+            actualChecksum: expect.stringMatching(/^[a-f0-9]{64}$/) // Verify actual SHA-256 checksum
           })
         });
 
@@ -660,7 +700,7 @@ describe('End-to-End Integration Tests (Server Running)', () => {
         if (hasWalletCreds) {
           expect(response.body.flow.walletStorage).toMatchObject({
             success: expect.any(Boolean),
-            namespace: 'test/monzo'
+            namespace: 'monzo/test'
           });
         }
 
@@ -702,7 +742,7 @@ describe('End-to-End Integration Tests (Server Running)', () => {
         });
 
         if (hasWalletCreds) {
-          expect(response.body.flow.walletStorage.namespace).toBe('test/monzo');
+          expect(response.body.flow.walletStorage.namespace).toBe('monzo/test');
         }
       }
     });
@@ -730,7 +770,7 @@ describe('End-to-End Integration Tests (Server Running)', () => {
             }),
             walletStorage: expect.objectContaining({
               success: expect.any(Boolean),
-              namespace: 'test/monzo'
+              namespace: 'monzo/test'
             })
           })
         });

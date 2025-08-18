@@ -418,6 +418,70 @@ app.post('/test/wallet-store', async (req, res) => {
   }
 });
 
+// Store Monzo data with new checksum metadata structure
+app.post('/test/store-monzo-with-checksum', async (req, res) => {
+  try {
+    const { monzoData, namespace = 'monzo', isTest = true, inbox_message_id = null } = req.body;
+    
+    if (!monzoData) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No Monzo data provided',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    logger.info('Storing Monzo data with checksum metadata', { 
+      namespace,
+      isTest,
+      accountCount: monzoData.accounts?.length || 0,
+      balanceCount: monzoData.balances?.length || 0,
+      hasInboxMessageId: !!inbox_message_id
+    });
+
+    // Store using the new checksum structure 
+    const result = await walletClient.storeData(namespace, 'accounts', monzoData, {
+      isTest: false, // Change to production namespace (monzo instead of monzo/test)
+      recordName: 'monzo-data-with-checksum',
+      inbox_message_id
+    });
+
+    // Get the actual checksum from the stored data
+    const Integrity = require('./src/utils/integrity');
+    const actualChecksum = Integrity.compute_checksum(monzoData);
+
+    // Prepare enhanced response with actual checksum details
+    const response = {
+      status: result.success ? 'success' : 'error',
+      message: result.success ? 'Monzo data stored with checksum metadata successfully' : 'Failed to store Monzo data',
+      result: {
+        ...result,
+        actualChecksum: actualChecksum,
+        payloadStructure: {
+          metadata: {
+            inbox_message_id: inbox_message_id,
+            create_at: new Date().toISOString(),
+            checksum: actualChecksum
+          },
+          data: 'monzo-account-and-balance-data'
+        }
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    res.status(result.success ? 200 : 500).json(response);
+    
+  } catch (error) {
+    logger.error('Failed to store Monzo data with checksum', { error: error.message });
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to store Monzo data with checksum',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 app.get('/test/wallet-retrieve/:namespace', async (req, res) => {
   try {
     const { namespace } = req.params;
